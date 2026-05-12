@@ -6,7 +6,7 @@ import './style.css'
 import * as THREE from 'three' 
 import Stats from 'three/addons/libs/stats.module.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { GUI } from 'dat.gui'
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 
 /** 
  * Creating a Scene
@@ -71,18 +71,34 @@ new OrbitControls(camera, renderer.domElement)
 
 
 /**
+ * Orbit controls rendering options
+ * optional: render whenever the camera moves, must add a first render before animation, and remove other render
+ */
+// controls.addEventListener('change', () => {
+//   renderer.render(scene, camera)
+// })
+
+
+/**
  * Materials
  */
 const material = new THREE.MeshNormalMaterial({ wireframe: true })
-const basicMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-// custom material
+const basicMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+
+
+/**
+ * CustomMaterials
+ */
 const map = new THREE.TextureLoader().load('/textures/sprite.png');
 const customMaterial = new THREE.MeshBasicMaterial({ map: map });
+
 
 /**
  * Geometries and shapes 
  */
 const BoxGeometry = new THREE.BoxGeometry()
+const SmallBoxGeometry = new THREE.BoxGeometry(.5, .5, .5)
+
 
 /**
  * Meshs between materials and geometries
@@ -90,6 +106,8 @@ const BoxGeometry = new THREE.BoxGeometry()
 const cube = new THREE.Mesh(BoxGeometry, material)
 const cubeColored = new THREE.Mesh(BoxGeometry, basicMaterial)
 const cubeCustom = new THREE.Mesh(BoxGeometry, customMaterial)
+const smallcube = new THREE.Mesh(SmallBoxGeometry, material)
+
 
 /**
  * Adding meshs to the scene
@@ -100,21 +118,61 @@ scene3.add(cubeCustom)
 
 
 /**
+ * Adding object hierarchy to the scene
+ */
+cube.add(smallcube)
+
+
+/**
+ *  Object position (in this case relative to cube)
+ */
+smallcube.position.set(0, 0, 0)
+
+/**
+ *  Liighting
+ * AmbientLight illuminates the whole scene in all directions.
+ * DirectionalLight illuminates the whole scene in 1 direction.
+ * PointLight illuminates in all directions from a 3D position. Distance and decay can be managed.
+ * SpotLight illuminates in 1 direction from a 3D position. Distance, decay, angle, penumbra and target can be managed.
+ */
+
+// Luz tipo farol (SpotLight)
+const light = new THREE.SpotLight(0xffffff, Math.PI)
+light.position.set(4, 3, 4)
+light.target.position.set(0, 0, 0)
+light.angle = Math.PI * 0.2     // abertura do feixe
+light.penumbra = 0.1            // suavidade nas bordas
+light.decay = 1                // queda da luz
+light.distance = 20            // alcance
+scene2.add(light)
+scene2.add(light.target)
+
+
+/**
  * DAT GUI Screen Options Extension
  * Simple interface to interact with scene, object and camera
  * Auto adapt to int, float, color, boolean and function
+ * dat.GUI still works very well, but it is no longer maintained, in case of errors migration to LIL-GUI can be performed.
  */
 const gui = new GUI()
-const cubeFolder = gui.addFolder('Cube')
-cubeFolder.add(cube.rotation, 'x', 0, Math.PI * 2)
-cubeFolder.add(cube.rotation, 'y', 0, Math.PI * 2)
-cubeFolder.add(cube.rotation, 'z', 0, Math.PI * 2)
-cubeFolder.open()
+const cubeFolder = gui.addFolder('Visibility')
+cubeFolder.add(cube, 'visible')
+const rotationFolder = gui.addFolder('Rotation')
+rotationFolder.add(cube.rotation, 'x', 0, Math.PI * 2)
+rotationFolder.add(cube.rotation, 'y', 0, Math.PI * 2)
+rotationFolder.add(cube.rotation, 'z', 0, Math.PI * 2)
+const positionFolder = gui.addFolder('Position')
+positionFolder.add(cube.position, 'x', -5, 5)
+positionFolder.add(cube.position, 'y', -5, 5)
+positionFolder.add(cube.position, 'z', -5, 5)
 const cameraFolder = gui.addFolder('Camera')
 cameraFolder.add(camera.position, 'z', 0, 20)
 cameraFolder.add(camera.position, 'x', 0, 20)
 cameraFolder.add(camera.position, 'y', 0, 20)
-cameraFolder.open()
+const scaleFolder = gui.addFolder('Scale')
+scaleFolder.add(cube.scale, 'x', -5, 5)
+scaleFolder.add(cube.scale, 'y', -5, 5)
+scaleFolder.add(cube.scale, 'z', -5, 5)
 let activeScene = scene1
 const setScene = {
    scene1: () => {
@@ -127,19 +185,36 @@ const setScene = {
      activeScene = scene3
    },
 }
-gui.add(setScene, 'scene1').name('Scene 1')
-gui.add(setScene, 'scene2').name('Scene 2')
-gui.add(setScene, 'scene3').name('Scene 3')
+gui.add(setScene, 'scene1').name('Cube')
+gui.add(setScene, 'scene2').name('Cube Colored')
+gui.add(setScene, 'scene3').name('Cube Custom')
 
 
+/**
+ * Frame rate independence
+ * allows animation to run at same speed regardless of the frame rate
+ * THREE.Clock deprecated, use THREE.Timer instead
+ */
+const timer = new THREE.Timer();
+let delta
+
+
+/**
+ * Animation loop
+ * requestAnimationFrame() tells the browser that you wish to perform an animation and requests that the browser calls a specified function to update an animation before the next repaint.
+ * The method takes a callback as an argument to be invoked before the repaint.
+ * The callback is passed a single argument, a DOMHighResTimeStamp, which indicates the current time when requestAnimationFrame() starts to execute callback functions.
+ */
 function animate() {
+  timer.update()
+  delta = timer.getDelta()
   requestAnimationFrame(animate)
-  cube.rotation.x += 0.01
-  cube.rotation.y += 0.01
-  cubeCustom.rotation.x += 0.01
-  cubeCustom.rotation.y += 0.01
-  cubeColored.rotation.x += 0.01
-  cubeColored.rotation.y += 0.01
+  // cube.rotation.x += delta
+  // cube.rotation.y += delta
+  // cubeCustom.rotation.x += delta
+  // cubeCustom.rotation.y += delta
+  cubeColored.rotation.x += delta
+  cubeColored.rotation.y += delta
   renderer.render(activeScene, camera)
   stats.update()
 }
